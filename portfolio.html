@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>資產管理投資組合</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-main: #0d0f18;
+            --bg-card: #141724;
+            --bg-input: #1e2235;
+            --text-main: #ffffff;
+            --text-sub: #848b9c;
+            --gr: #00c853;
+            --rd: #ff3d00;
+            --brd: #22273d;
+            --accent: #3d5afe;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        body { background-color: var(--bg-main); color: var(--text-main); padding-bottom: 60px; }
+        
+        /* 頂部導覽與基礎佈局 */
+        header { background-color: var(--bg-card); padding: 12px 16px; border-bottom: 1px solid var(--brd); display: flex; justify-content: space-between; align-items: center; }
+        h1 { font-size: 18px; font-weight: bold; }
+        .ccy-switch { display: flex; gap: 4px; background: var(--bg-main); padding: 2px; border-radius: 6px; }
+        .ccy-btn { background: transparent; border: none; color: var(--text-sub); padding: 4px 10px; font-size: 12px; border-radius: 4px; cursor: pointer; }
+        .ccy-btn.on { background: var(--accent); color: #fff; font-weight: bold; }
+        
+        /* 狀態列 */
+        .sbar { display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: rgba(61, 90, 254, 0.1); font-size: 12px; color: var(--text-sub); }
+        .sdot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; }
+        .sdot.ld { background: #ffbc00; animation: pulse 1s infinite; }
+        .sdot.ok { background: var(--gr); }
+        .sdot.er { background: var(--rd); }
+        @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+        
+        /* 核心數據卡片 */
+        .met-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 16px; }
+        @media (min-width: 768px) { .met-grid { grid-template-columns: repeat(4, 1fr); } }
+        .mc { background: var(--bg-card); padding: 12px; border-radius: 8px; border: 1px solid var(--brd); }
+        .mclbl { font-size: 11px; color: var(--text-sub); margin-bottom: 4px; }
+        .mcval { font-size: 16px; font-weight: bold; }
+        .mcval.g { color: var(--gr); }
+        .mcval.r { color: var(--rd); }
+        .mcsub { font-size: 10px; color: var(--text-sub); margin-top: 2px; }
+
+        /* 圖表與比例佈局 */
+        .chart-box { background: var(--bg-card); margin: 0 16px 16px 16px; padding: 16px; border-radius: 8px; border: 1px solid var(--brd); display: flex; flex-direction: column; align-items: center; }
+        .chart-container { position: relative; width: 160px; height: 160px; margin-bottom: 12px; }
+        .al-list { width: 100%; }
+        .alrow { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; font-size: 12px; border-bottom: 1px solid var(--brd); }
+        .aldot { width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; display: inline-block; }
+        .alname { flex: 1; }
+        .alpnl { margin-right: 12px; font-weight: 500; }
+        .alpnl.g { color: var(--gr); }
+        .alpnl.r { color: var(--rd); }
+        .alval { font-weight: bold; margin-right: 12px; }
+        .alpct { color: var(--text-sub); width: 40px; text-align: right; }
+
+        /* 標籤頁面切換控制 */
+        .page { display: none; }
+        .page.on { display: block; }
+        
+        /* 持倉卡片與表格 */
+        .pcard { background: var(--bg-card); margin: 16px; border-radius: 8px; border: 1px solid var(--brd); overflow: hidden; }
+        .pcard-hdr { padding: 12px 16px; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--brd); display: flex; justify-content: space-between; align-items: center; }
+        .pcard-hdr h2 { font-size: 14px; }
+        
+        table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
+        th, td { padding: 10px 12px; border-bottom: 1px solid var(--brd); vertical-align: middle; }
+        th { color: var(--text-sub); font-weight: normal; background: rgba(0,0,0,0.1); }
+        .R { text-align: right; }
+        .cG { color: var(--gr); }
+        .cR { color: var(--rd); }
+        .tick { font-weight: bold; display: block; }
+        .nsub, .dtsub { font-size: 10px; color: var(--text-sub); display: block; margin-top: 1px; }
+        .emptytd { text-align: center; color: var(--text-sub); padding: 30px 0; }
+        
+        /* 操作按鈕 */
+        .acts { display: flex; gap: 8px; justify-content: flex-end; }
+        .ibtn { background: transparent; border: none; color: var(--text-sub); cursor: pointer; font-size: 14px; padding: 2px 6px; }
+        .ibtn:hover { color: #fff; }
+        .btn-add { background: var(--accent); color: #fff; border: none; padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold; }
+        
+        /* 設定頁面樣式卡片 */
+        .scard { background: var(--bg-card); margin: 16px; padding: 16px; border-radius: 8px; border: 1px solid var(--brd); }
+        .scard h3 { font-size: 15px; margin-bottom: 6px; border-left: 3px solid var(--accent); padding-left: 8px; }
+        .scard-sub { font-size: 12px; color: var(--text-sub); margin-bottom: 16px; line-height: 1.4; }
+        .frow { display: flex; align-items: flex-start; margin-bottom: 12px; font-size: 13px; }
+        .flbl { width: 120px; padding-top: 8px; color: var(--text-sub); }
+        .finput { width: 100%; background: var(--bg-input); border: 1px solid var(--brd); border-radius: 4px; padding: 8px; color: #fff; font-size: 13px; }
+        .fhint { font-size: 11px; color: var(--text-sub); margin-top: 4px; }
+        .fhint b { color: var(--accent); }
+        .fhint a { color: var(--accent); text-decoration: none; }
+        
+        .sbtn { background: var(--accent); color: #fff; border: none; padding: 8px 16px; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: bold; }
+        .sbtn2 { background: rgba(255,255,255,0.05); color: #fff; border: 1px solid var(--brd); padding: 8px 16px; border-radius: 4px; font-size: 13px; cursor: pointer; }
+        .sbtn-danger { background: var(--rd); color: #fff; border: none; padding: 8px 16px; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: bold; }
+        
+        /* 下方導覽列 (行動版優先) */
+        nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg-card); border-top: 1px solid var(--brd); display: flex; height: 50px; z-index: 99; }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-sub); text-decoration: none; font-size: 11px; cursor: pointer; }
+        .nav-item.on { color: var(--accent); font-weight: bold; }
+        .nav-icon { font-size: 16px; margin-bottom: 2px; }
+
+        /* 桌面版寬度自適應修正 */
+        .desktop-layout { display: block; }
+        @media (min-width: 992px) {
+            .main-container { display: flex; max-width: 1200px; margin: 0 auto; padding: 16px; gap: 16px; }
+            .side-panel { width: 320px; flex-shrink: 0; }
+            .content-panel { flex: 1; }
+            .chart-box { margin: 0 0 16px 0; }
+            .pcard { margin: 0 0 16px 0; }
+            .scard { margin: 0 0 16px 0; }
+            .met-grid { padding: 0 0 16px 0; }
+            nav { display: none; }
+            body { padding-bottom: 0; }
+            .d-hide { display: none !important; }
+        }
+        @media (max-width: 991px) {
+            .m-hide { display: none !important; }
+        }
+
+        /* 彈出式對話視窗 (Modal) */
+        .modal-bg { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 100; padding: 16px; }
+        .modal-bg.on { opacity: 1; pointer-events: auto; }
+        .modal { background: var(--bg-card); border: 1px solid var(--brd); border-radius: 8px; width: 100%; max-width: 400px; overflow: hidden; }
+        .modal-hdr { padding: 12px 16px; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--brd); font-weight: bold; font-size: 14px; }
+        .modal-body { padding: 16px; }
+        .modal-body .frow { flex-direction: column; margin-bottom: 12px; }
+        .modal-body .flbl { width: 100%; padding-bottom: 4px; font-size: 12px; }
+        .modal-ftr { padding: 12px 16px; border-top: 1px solid var(--brd); display: flex; justify-content: flex-end; gap: 8px; background: rgba(0,0,0,0.1); }
+        
+        /* 載入中動畫與提示 */
+        .pspin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--text-sub); border-radius: 50%; border-top-color: transparent; animation: spin 0.8s linear infinite; }
+        .spin { animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* Toast 提示通知 */
+        .toast { position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: #fff; padding: 8px 16px; border-radius: 20px; font-size: 12px; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.3s; text-align: center; white-space: nowrap; max-width: 90%; }
+        @media (min-width: 992px) { .toast { bottom: 20px; } }
+        .toast.on { opacity: 1; }
+        
+        .syncbadge { display: flex; align-items: center; gap: 6px; font-size: 11px; margin-top: 6px; padding: 4px 8px; background: rgba(255,255,255,0.03); border-radius: 4px; display: inline-flex; }
+        .syncbadge.ok { color: var(--gr); }
+        .syncbadge.err { color: var(--rd); }
+        .syncbadge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>資產管理儀表板</h1>
+        <div class="ccy-switch">
+            <button id="mb-twd" class="ccy-btn on" onclick="setCur('TWD')">TWD</button>
+            <button id="mb-usd" class="ccy-btn" onclick="setCur('USD')">USD</button>
+        </div>
+    </header>
+
+    <div id="msbar" class="sbar d-hide">
+        <div id="msdot" class="sdot"></div>
+        <span id="mstxt">尚未讀取數據</span>
+    </div>
+
+    <div class="main-container">
+        
+        <div class="side-panel">
+            <div id="m-met" class="met-grid d-hide"></div>
