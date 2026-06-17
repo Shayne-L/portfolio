@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="資產總覽">
+<meta name="theme-color" content="#0d0f18">
+<title>資產總覽</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+<style>
+/* ── Reset & Tokens ─────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0d0f18;--bg2:#141720;--bg3:#1a1e2e;--bg4:#202436;
+  --b1:rgba(255,255,255,.07);--b2:rgba(255,255,255,.13);
+  --tx:#e4e7f0;--tx2:#7c839a;--tx3:#454c62;
+  --gr:#27c27e;--rd:#e8504a;--bl:#4b8ef0;
+  --pu:#8f72f2;--tl:#29c4a2;--am:#e8a020;
+  --r:10px;--rsm:6px;
+  --sb:env(safe-area-inset-bottom,0px);
+  --st:env(safe-area-inset-top,0px);
+}
+html{font-size:14px;background:var(--bg);overflow-x:hidden}
+body{color:var(--tx);font-family:-apple-system,'Segoe UI',sans-serif;min-height:100dvh;background:var(--bg);overflow-x:hidden;width:100%}
+button,input,select{font-family:inherit;font-size:16px}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:var(--b2);border-radius:3px}
+
+/* ── Mobile Layout ─────────────────────────── */
+.mob{display:flex;flex-direction:column;min-height:100dvh;width:100%;overflow-x:hidden}
+.dsk{display:none}
+
+.mhdr{padding:calc(var(--st)+12px) 14px 10px;background:var(--bg2);flex-shrink:0;z-index:50;border-bottom:1px solid var(--b1);position:sticky;top:0}
+.mhdr-row{display:flex;align-items:center;justify-content:space-between}
+.logo{font-size:18px;font-weight:700;letter-spacing:-.4px}
+.logo em{color:var(--bl);font-style:normal}
+.hdr-r{display:flex;gap:8px;align-items:center}
+
+.cpill{display:flex;border:1px solid var(--b2);border-radius:20px;overflow:hidden;background:var(--bg)}
+.cpill button{background:none;border:none;padding:5px 12px;font-size:13px;color:var(--tx2);cursor:pointer;font-weight:500}
+.cpill button.on{background:var(--bl);color:#fff;font-weight:600;border-radius:20px}
+
+.rbtn{display:flex;align-items:center;gap:5px;background:var(--bg3);border:1px solid var(--b2);border-radius:20px;padding:5px 14px;font-size:13px;color:var(--tx);cursor:pointer;white-space:nowrap;font-weight:500}
+.rbtn:active{opacity:.7}
+.rbtn.spin svg{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.mbody{flex:1;padding:14px 14px calc(80px + var(--sb));width:100%;overflow-x:hidden}
+
+.mtabs{position:fixed;bottom:0;left:0;right:0;background:rgba(20,23,32,.94);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid var(--b1);display:flex;padding-bottom:var(--sb);z-index:100}
+.mtab{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 0 6px;gap:3px;background:none;border:none;cursor:pointer;color:var(--tx3);font-size:10px;font-weight:600}
+.mtab.on{color:var(--bl)}
+.mtab svg{width:22px;height:22px}
+
+.mpanel{display:none;width:100%}
+.mpanel.on{display:block}
+
+/* ── Desktop Layout (≥768px) ───────────────── */
+@media(min-width:768px){
+  .mob{display:none}
+  .dsk{display:grid;grid-template-columns:220px 1fr;grid-template-rows:56px 1fr;min-height:100dvh;width:100%}
+  .dtop{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:var(--bg2);border-bottom:1px solid var(--b1);position:sticky;top:0;z-index:60}
+  .dtop .logo{font-size:16px}
+  .dtop-r{display:flex;align-items:center;gap:14px}
+  .dupd{font-size:12px;color:var(--tx2)}
+  .dside{background:var(--bg2);border-right:1px solid var(--b1);padding:14px 0;position:sticky;top:56px;height:calc(100dvh - 56px);overflow-y:auto}
+  .dnav{display:flex;align-items:center;gap:10px;padding:12px 18px;cursor:pointer;font-size:13px;color:var(--tx2);border-left:3px solid transparent;transition:all .15s}
+  .dnav:hover{color:var(--tx);background:var(--bg3)}
+  .dnav.on{color:var(--tx);border-left-color:var(--bl);background:var(--bg3);font-weight:600}
+  .dnav svg{width:16px;height:16px;flex-shrink:0;opacity:.7}
+  .dseclbl{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.08em;padding:16px 18px 6px;font-weight:700}
+  .dmain{padding:24px 28px;overflow-x:hidden}
+  .dpanel{display:none}
+  .dpanel.on{display:block}
+}
+
+/* ── Shared Panels & Cards ─────────────────── */
+.sbar{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--tx2);margin-bottom:14px;padding:10px 14px;background:var(--bg3);border:1px solid var(--b1);border-radius:var(--rsm)}
+.sdot{width:6px;height:6px;border-radius:50%;flex-shrink:0;background:var(--tx3)}
+.sdot.ok{background:var(--gr)}.sdot.ld{background:var(--am);animation:pulse 1s infinite}.sdot.er{background:var(--rd)}
+
+.metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px;width:100%}
+.mc{background:var(--bg3);border:1px solid var(--b1);border-radius:var(--r);padding:14px 16px}
+.mclbl{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;font-weight:700}
+.mcval{font-size:20px;font-weight:700;letter-spacing:-.5px;line-height:1.1;font-variant-numeric:tabular-nums}
+@media(min-width:768px){.mcval{font-size:24px}}
+.mcval.g{color:var(--gr)}.mcval.r{color:var(--rd)}
+.mcsub{font-size:11px;color:var(--tx2);margin-top:5px}
+
+.ovgrid{display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:18px;width:100%}
+@media(min-width:992px){.ovgrid{grid-template-columns:1fr 1.2fr}}
+
+.card{background:var(--bg3);border:1px solid var(--b1);border-radius:var(--r);padding:16px;width:100%;min-width:0;overflow:hidden;position:relative}
+.cardt{font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px}
+
+.chwrap{position:relative;height:240px;width:100%;max-width:280px;margin:10px auto}
+
+.tblwrap{border-radius:var(--r);border:1px solid var(--b1);overflow:hidden;background:var(--bg3);width:100%}
+.p-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+.p-table th { padding: 10px 8px; font-size: 11px; font-weight: 600; color: var(--tx3); text-transform: uppercase; letter-spacing:.05em; background: var(--bg4); border-bottom: 1px solid var(--b1); }
+.p-table td { padding: 12px 8px; border-bottom: 1px solid var(--b1); color: var(--tx); vertical-align: middle; font-variant-numeric: tabular-nums; }
+.p-table tr:last-child td { border-bottom: none; }
+
+/* 📱 手機版雙行化列表 */
+.m-row-card { background: var(--bg3); border-bottom: 1px solid var(--b1); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.m-row-card:last-child { border-bottom: none; }
+.m-line1, .m-line2 { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.m-line2 { font-size: 11px; color: var(--tx2); }
+.m-actions { display: flex; gap: 12px; align-items: center; }
+
+.p-table th.R, .p-table td.R { text-align: right; }
+
+/* 損益明細雙行卡片 */
+.al-list { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.al-row-card { background: var(--bg4); border: 1px solid var(--b1); border-radius: var(--rsm); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.al-line1, .al-line2 { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.al-line2 { border-top: 1px dashed var(--b1); padding-top: 6px; font-size: 12px; }
+.al-cell-left { display: flex; align-items: center; gap: 6px; }
+.alname { font-weight: 700; color: var(--tx); }
+.alval-txt { font-size: 11px; color: var(--tx2); }
+.aldot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.al-subitem { color: var(--tx2); font-size: 11px; }
+.al-subitem span { color: var(--tx); font-variant-numeric: tabular-nums; font-weight: 500; margin-left: 2px; }
+
+.sec{margin-bottom:24px;width:100%}
+.sechdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.badge{font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px}
+.bCrypto{background:rgba(143,114,242,.15);color:var(--pu)}
+.bUs{background:rgba(75,142,240,.15);color:var(--bl)}
+.bTw{background:rgba(41,196,162,.15);color:var(--tl)}
+.addbtn{background:none;border:1px solid var(--b2);border-radius:var(--rsm);padding:6px 14px;font-size:12px;color:var(--tx);cursor:pointer;font-weight:500}
+
+.cG{color:var(--gr);font-weight:600}.cR{color:var(--rd);font-weight:600}
+.tick{font-weight:700;font-size:13px;letter-spacing:.02em}
+.nsub{font-size:11px;color:var(--tx2);display:block;margin-top:2px}
+.pspin{width:10px;height:10px;border:1.5px solid var(--b2);border-top-color:var(--bl);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+
+.acts{display:flex;gap:4px;justify-content:flex-end;align-items:center}
+.ibtn{background:none;border:none;width:28px;height:28px;border-radius:6px;color:var(--tx2);cursor:pointer;font-size:14px;display:inline-flex;align-items:center;justify-content:center}
+.ibtn:hover{background:var(--bg4);color:var(--tx)}
+.emptytd{text-align:center;color:var(--tx3);padding:32px 12px;font-size:13px}
+
+.scard{background:var(--bg3);border:1px solid var(--b1);border-radius:var(--r);padding:18px;max-width:520px;margin-bottom:16px}
+.scard h3{font-size:14px;font-weight:600;margin-bottom:4px}
+.scard-sub{font-size:12px;color:var(--tx2);margin-bottom:16px;line-height:1.5}
+.frow{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+@media(min-width:600px){.frow{flex-direction:row;align-items:center;gap:12px}}
+.flbl{font-size:13px;color:var(--tx2);width:140px;flex-shrink:0}
+.finput{width:100%;background:var(--bg4);border:1px solid var(--b2);border-radius:var(--rsm);padding:10px 12px;font-size:14px;color:var(--tx)}
+.finput:focus{outline:none;border-color:var(--bl)}
+.sbtn{background:var(--bl);border:none;border-radius:var(--rsm);padding:10px 22px;font-size:13px;color:#fff;font-weight:600;cursor:pointer}
+.sbtn2{background:var(--bg4);color:var(--tx2);border:1px solid var(--b2);border-radius:var(--rsm);padding:10px 16px;font-size:13px;cursor:pointer}
+.sbtn-danger{background:rgba(232,80,74,.12);color:var(--rd);border:1px solid rgba(232,80,74,.25);border-radius:var(--rsm);padding:10px 18px;font-size:13px;cursor:pointer}
+
+/* ── Modal Popups ──────────────────────────── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:200;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+@media(min-width:768px){.modal-bg{align-items:center;padding:20px}}
+.modal-bg.on{opacity:1;pointer-events:all}
+.modal{background:var(--bg2);border:1px solid var(--b2);border-radius:20px 20px 0 0;padding:16px 20px calc(24px + var(--sb));width:100%;max-width:460px;transform:translateY(100%);transition:transform .25s cubic-bezier(0.1, 0.76, 0.55, 0.94);max-height:92dvh;overflow-y:auto}
+@media(min-width:768px){.modal{border-radius:16px;transform:scale(0.95);max-height:none}}
+.modal-bg.on .modal{transform:translateY(0)}
+@media(min-width:768px){.modal-bg.on .modal{transform:scale(1)}}
+.hbar{width:36px;height:4px;background:var(--b2);border-radius:2px;margin:0 auto 14px}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.modal-hdr h3{font-size:16px;font-weight:600}
+.modal-close{background:none;border:none;color:var(--tx2);font-size:24px;cursor:pointer}
+.modal-footer{display:flex;gap:10px;margin-top:20px}
+.modal-footer .sbtn{flex:2}
+.modal-footer .sbtn2{flex:1}
+
+#toast{position:fixed;bottom:calc(84px + var(--sb));left:50%;transform:translateX(-50%);background:var(--bg4);border:1px solid var(--b2);border-radius:20px;padding:10px 22px;font-size:12px;color:var(--tx);opacity:0;transition:opacity .2s;pointer-events:none;z-index:999;box-shadow:0 6px 26px rgba(0,0,0,.5)}
+@media(min-width:768px){#toast{bottom:28px}}
+#toast.on{opacity:1}
+</style>
+</head>
+<body>
+
+<div class="mob">
+  <header class="mhdr">
+    <div class="mhdr-row">
+      <div class="logo">資產<em>總覽</em></div>
+      <div class="hdr-r">
+        <div class="cpill">
+          <button id="mb-twd" class="on" onclick="setCur('TWD')">TWD</button>
+          <button id="mb-usd" onclick="setCur('USD')">USD</button>
+        </div>
+        <button class="rbtn" id="m-rbtn" onclick="fetchAll()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+          刷新
+        </button>
+      </div>
+    </div>
+  </header>
+  <div class="mbody">
+    <div id="msbar" class="sbar" style="display:none"><span class="sdot" id="msdot"></span><span id="mstxt"></span></div>
+    
+    <div id="mp-overview" class="mpanel on">
+      <div class="metrics" id="m-met"></div>
+      <div class="ovgrid">
+        <div class="card">
+          <div class="cardt">資產配置比例</div>
+          <div class="chwrap"><canvas id="m-ch"></canvas></div>
+        </div>
+        <div class="card"><div class="cardt">各類別損益明細</div><div id="m-al" class="al-list"></div></div>
+      </div>
+    </div>
+
+    <div id="mp-tw" class="mpanel">
+      <div class="sec">
+        <div class="sechdr"><span class="badge bTw">國泰證券</span><button class="addbtn" onclick="openModal('cathay_tw')">＋ 新增</button></div>
+        <div class="tblwrap" id="mt-cathay_tw"></div>
+      </div>
+      <div class="sec">
+        <div class="sechdr"><span class="badge bTw">永豐金證券</span><button class="addbtn" onclick="openModal('sinopac')">＋ 新增</button></div>
+        <div class="tblwrap" id="mt-sinopac"></div>
+      </div>
+    </div>
+
+    <div id="mp-us" class="mpanel">
+      <div class="sec">
+        <div class="sechdr"><span class="badge bUs">國泰 複委託</span><button class="addbtn" onclick="openModal('cathay_us')">＋ 新增</button></div>
+        <div class="tblwrap" id="mt-cathay_us"></div>
+      </div>
+      <div class="sec">
+        <div class="sechdr"><span class="badge bUs">Firstrade</span><button class="addbtn" onclick="openModal('firstrade')">＋ 新增</button></div>
+        <div class="tblwrap" id="mt-firstrade"></div>
+      </div>
+    </div>
+
+    <div id="mp-crypto" class="mpanel">
+      <div class="sec">
+        <div class="sechdr"><span class="badge bCrypto">幣安 Binance</span><button class="addbtn" onclick="openModal('binance')">＋ 新增</button></div>
+        <div class="tblwrap" id="mt-binance"></div>
+      </div>
+      <div class="sec">
+        <div class="sechdr"><span class="badge bCrypto">Ledger 冷錢包</span><button class="addbtn" onclick="openModal('ledger')">＋ 新增</button></div>
+        <div class="tblwrap" id="mt-ledger"></div>
+      </div>
+    </div>
+    <div id="mp-settings" class="mpanel"><div id="m-set"></div></div>
+  </div>
+  
+  <nav class="mtabs">
+    <button class="mtab on" id="mtab-overview" onclick="switchTab('overview')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>總覽</button>
+    <button class="mtab" id="mtab-tw" onclick="switchTab('tw')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 4h2m2 0h2m-3-3v2m0 2v2"/></svg>台股</button>
+    <button class="mtab" id="mtab-us" onclick="switchTab('us')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>美股</button>
+    <button class="mtab" id="mtab-crypto" onclick="switchTab('crypto')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 9h4a2 2 0 0 1 0 4H9v4m3-10v-2m0 14v-2m-3-6h6"/></svg>加密貨幣</button>
+    <button class="mtab" id="mtab-settings" onclick="switchTab('settings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>設定</button>
+  </nav>
+</div>
+
+<div class="dsk">
+  <div class="dtop">
+    <div class="logo">資產<em>總覽</em></div>
+    <div class="dtop-r">
+      <span class="dupd" id="d-upd"></span>
+      <div class="cpill">
+        <button id="db-twd" class="on" onclick="setCur('TWD')">TWD</button>
+        <button id="db-usd" onclick="setCur('USD')">USD</button>
+      </div>
+      <button class="rbtn" id="d-rbtn" onclick="fetchAll()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+        刷新價格
+      </button>
+    </div>
+  </div>
+  <nav class="dside">
+    <div class="dseclbl">總覽</div>
+    <div class="dnav on" id="dnav-overview" onclick="switchTab('overview')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>儀表板</div>
+    <div class="dseclbl">帳戶</div>
+    <div class="dnav" id="dnav-tw" onclick="switchTab('tw')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 4h2m2 0h2m-3-3v2m0 2v2"/></svg>台股</div>
+    <div class="dnav" id="dnav-us" onclick="switchTab('us')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>美股</div>
+    <div class="dnav" id="dnav-crypto" onclick="switchTab('crypto')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 9h4a2 2 0 0 1 0 4H9v4m3-10v-2m0 14v-2m-3-6h6"/></svg>加密貨幣</div>
+    <div class="dseclbl">系統</div>
+    <div class="dnav" id="dnav-settings" onclick="switchTab('settings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>設定與同步</div>
+  </nav>
+  <main class="dmain">
+    <div id="dsbar" class="sbar" style="display:none"><span class="sdot" id="dsdot"></span><span id="dstxt"></span></div>
+    
+    <div id="dp-overview" class="dpanel on">
+      <div class="metrics" id="d-met"></div>
+      <div class="ovgrid">
+        <div class="card">
+          <div class="cardt">資產配置比例</div>
+          <div class="chwrap"><canvas id="d-ch"></canvas></div>
+        </div>
+        <div class="card"><div class="cardt">各類別損益明細</div><div id="d-al" class="al-list"></div></div>
+      </div>
+    </div>
+
+    <div id="dp-tw" class="dpanel">
+      <div class="sec">
+        <div class="sechdr"><span class="badge bTw">國泰證券</span><button class="addbtn" onclick="openModal('cathay_tw')">＋ 新增資產</button></div>
+        <div class="tblwrap"><table class="p-table"><thead><tr><th style="text-align:left;width:25%">股票名稱</th><th class="R">平均成本</th><th class="R">持股數量</th><th class="R">目前現價</th><th class="R">市值 (TWD)</th><th class="R">累積損益</th><th class="R">報酬率</th><th class="R">交易日期</th><th class="R" style="width:75px">操作</th></tr></thead><tbody id="dt-cathay_tw"></tbody></table></div>
+      </div>
+      <div class="sec">
+        <div class="sechdr"><span class="badge bTw">永豐金證券</span><button class="addbtn" onclick="openModal('sinopac')">＋ 新增資產</button></div>
+        <div class="tblwrap"><table class="p-table"><thead><tr><th style="text-align:left;width:25%">股票名稱</th><th class="R">平均成本</th><th class="R">持股數量</th><th class="R">目前現價</th><th class="R">市值 (TWD)</th><th class="R">累積損益</th><th class="R">報酬率</th><th class="R">交易日期</th><th class="R" style="width:75px">操作</th></tr></thead><tbody id="dt-sinopac"></tbody></table></div>
+      </div>
+    </div>
+
+    <div id="dp-us" class="dpanel">
+      <div class="sec">
+        <div class="sechdr"><span class="badge bUs">國泰 複委託</span><button class="addbtn" onclick="openModal('cathay_us')">＋ 新增資產</button></div>
+        <div class="tblwrap"><table class="p-table"><thead><tr><th style="text-align:left;width:25%">股票代號</th><th class="R">平均成本</th><th class="R">持股數量</th><th class="R">目前現價</th><th class="R">市值 (USD)</th><th class="R">累積損益</th><th class="R">報酬率</th><th class="R">交易日期</th><th class="R" style="width:75px">操作</th></tr></thead><tbody id="dt-cathay_us"></tbody></table></div>
+      </div>
+      <div class="sec">
+        <div class="sechdr"><span class="badge bUs">Firstrade</span><button class="addbtn" onclick="openModal('firstrade')">＋ 新增資產</button></div>
+        <div class="tblwrap"><table class="p-table"><thead><tr><th style="text-align:left;width:25%">股票代號</th><th class="R">平均成本</th><th class="R">持股數量</th><th class="R">目前現價</th><th class="R">市值 (USD)</th><th class="R">累積損益</th><th class="R">報酬率</th><th class="R">交易日期</th><th class="R" style="width:75px">操作</th></tr></thead><tbody id="dt-firstrade"></tbody></table></div>
+      </div>
+    </div>
+
+    <div id="dp-crypto" class="dpanel">
+      <div class="sec">
+        <div class="sechdr"><span class="badge bCrypto">幣安 Binance</span><button class="addbtn" onclick="openModal('binance')">＋ 新增資產</button></div>
+        <div class="tblwrap"><table class="p-table"><thead><tr><th style="text-align:left;width:25%">幣種</th><th class="R">買入成本</th><th class="R">持幣數量</th><th class="R">目前現價</th><th class="R">市值 (USD)</th><th class="R">累積損益</th><th class="R">報酬率</th><th class="R">交易日期</th><th class="R" style="width:75px">操作</th></tr></thead><tbody id="dt-binance"></tbody></table></div>
+      </div>
+      <div class="sec">
+        <div class="sechdr"><span class="badge bCrypto">Ledger 冷錢包</span><button class="addbtn" onclick="openModal('ledger')">＋ 新增資產</button></div>
+        <div class="tblwrap"><table class="p-table"><thead><tr><th style="text-align:left;width:25%">幣種</th><th class="R">買入成本</th><th class="R">持幣數量</th><th class="R">目前現價</th><th class="R">市值 (USD)</th><th class="R">累積損益</th><th class="R">報酬率</th><th class="R">交易日期</th><th class="R" style="width:75px">操作</th></tr></thead><tbody id="dt-ledger"></tbody></table></div>
+      </div>
+    </div>
+    <div id="dp-settings" class="dpanel"><div id="m-set"></div></div>
+  </main>
+</div>
+
+<div class="modal-bg" id="modalBg" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="hbar"></div>
+    <div class="modal-hdr"><h3 id="modalTitle">新增資產</h3><button class="modal-close" onclick="closeModal()">×</button></div>
+    <input type="hidden" id="form-cat">
+    <input type="hidden" id="form-idx">
+    <div class="frow"><div class="flbl">資產代號</div><input type="text" id="form-sym" class="finput" placeholder="例如: 2330, 5483, BTC" autocomplete="off" autocapitalize="characters"></div>
+    <div class="frow"><div class="flbl" id="lbl-cost">買入成本</div><input type="number" step="any" inputmode="decimal" id="form-cost" class="finput" placeholder="0.00"></div>
+    <div class="frow"><div class="flbl" id="lbl-qty">持倉數量</div><input type="number" step="any" inputmode="decimal" id="form-qty" class="finput" placeholder="0.00"></div>
+    <div class="frow"><div class="flbl">交易日期 (選填)</div><input type="date" id="form-date" class="finput"></div>
+    <div class="modal-footer">
+      <button class="sbtn2" onclick="closeModal()">取消</button>
+      <button class="sbtn" onclick="saveForm()">儲存資產</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+Chart.register(ChartDataLabels);
+
+var TABS=['overview','tw','us','crypto','settings'];
+var CATS=['cathay_tw','sinopac','cathay_us','firstrade','binance','ledger'];
+var H={tw:[],us:[],crypto:[],lastUpdate:0}; 
+var LP={}; 
+var NM={}; 
+var C={TOKEN:'',GID:'',FKEY:'',FX:32.5,CUR:'TWD'};
+var editState={cat:null,idx:null};
+var chartObj=null;
+
+// ⚡ 移除了壞掉不支援 CORS 的代理，保留最穩定的兩個
+var PROXY_LIST = [
+  'https://api.allorigins.win/raw?url=',
+  'https://corsproxy.io/?url='
+];
+
+function init(){
+  loadConfig();
+  var urlParams=new URLSearchParams(window.location.search);
+  var tParam=urlParams.get('tab');
+  if(tParam && TABS.includes(tParam)){ switchTab(tParam); }else{ switchTab('overview'); }
+  gistPull(true);
+}
+
+function loadConfig(){
+  try{
+    var s=localStorage.getItem('p_config'); if(s){ C=Object.assign(C,JSON.parse(s)); }
+    var h=localStorage.getItem('p_holdings'); if(h){ H=JSON.parse(h); if(!H.tw)H.tw=[]; if(!H.us)H.us=[]; if(!H.crypto)H.crypto=[]; }
+    var l=localStorage.getItem('p_prices'); if(l){ LP=JSON.parse(l); }
+    var n=localStorage.getItem('p_names'); if(n){ NM=JSON.parse(n); }
+  }catch(e){console.error("配置載入失敗",e)}
+}
+
+function saveConfig(){
+  try{
+    localStorage.setItem('p_config',JSON.stringify(C));
+    localStorage.setItem('p_holdings',JSON.stringify(H));
+    localStorage.setItem('p_prices',JSON.stringify(LP));
+    localStorage.setItem('p_names',JSON.stringify(NM));
+  }catch(e){}
+}
+
+function setCur(cur){
+  C.CUR=cur;
+  ['mb-twd','mb-usd','db-twd','db-usd'].forEach(id=> {
+    var el=document.getElementById(id); if(el) el.classList.toggle('on',id.endsWith(cur.toLowerCase()));
+  });
+  saveConfig(); renderAll();
+}
+
+function updateStatus(state,txt){
+  ['msbar','dsbar'].forEach(id=>{
+    var el=document.getElementById(id); if(!el)return;
+    if(!state){ el.style.display='none'; return; }
+    el.style.display='flex';
+    var dot=el.querySelector('.sdot'); if(dot) dot.className='sdot '+state;
+    var txtEl=el.querySelector('span:not(.sdot)'); if(txtEl) txtEl.textContent=txt;
+  });
+}
+
+// 🛡️ 深度優化代理輪替：降低超時與重試延遲，解決讀取變慢問題
+async function fetchRetry(rawUrl, opts, retries, delay) {
+  var proxyIdx = 0;
+  for (var i = 0; i < retries; i++) {
+    try {
+      var currentProxy = PROXY_LIST[proxyIdx % PROXY_LIST.length];
+      var finalUrl = currentProxy + encodeURIComponent(rawUrl);
+      
+      var res = await fetch(finalUrl, opts);
+      if (res.ok) return res;
+      
+      if (res.status === 429 || res.status === 401 || res.status === 403) {
+        proxyIdx++;
+      }
+      throw new Error('HTTP ' + res.status);
+    } catch (e) {
+      if (i === retries - 1) throw e;
+      proxyIdx++;
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+}
+
+async function fetchAll(){
+  var btnM=document.getElementById('m-rbtn'), btnD=document.getElementById('d-rbtn');
+  if(btnM) btnM.classList.add('spin'); if(btnD) btnD.classList.add('spin');
+  updateStatus('ld','同步市場報價與美元匯率中...');
+  
+  try{
+    await Promise.allSettled([fetchTwStocks(), fetchUsStocks(), fetchCrypto(), fetchFx()]);
+    H.lastUpdate=Date.now(); saveConfig();
+    updateStatus('ok','行情更新成功 ('+new Date().toLocaleTimeString()+')');
+  }catch(e){
+    updateStatus('er','部分報價取得異常');
+  }finally{
+    if(btnM) btnM.classList.remove('spin'); if(btnD) btnD.classList.remove('spin');
+    renderAll();
+  }
+}
+
+async function fetchTwStocks(){
+  var twSet={};
+  ['cathay_tw','sinopac'].forEach(k=>{
+    (H[k]||[]).forEach(r=>{
+      if(!r.sym) return;
+      var code=r.sym.toString().trim().toUpperCase();
+      if(code) twSet[code]=true;
+    });
+  });
+  var twSymbols = Object.keys(twSet);
+  if(!twSymbols.length) return;
+
+  var tseUrl = 'https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL';
+  // ⚡ 終極修正：放棄官方容易 429 的上櫃 OpenAPI，改用官網寬容度極高且內建跨網域的 JSON / 報價接口
+  var tpexUrl = 'https://www.tpex.org.tw/web/stock/aftertrading/otc_quotes_no1430/stk_wno1430_result.php?l=zh-tw&d=';
+
+  await Promise.allSettled([
+    // 1. 上市股票抓取
+    (async () => {
+      try {
+        var res = await fetchRetry(tseUrl, { signal: AbortSignal.timeout(4000) }, 2, 200);
+        var arr = await res.json();
+        if (Array.isArray(arr)) {
+          arr.forEach(item => {
+            var code = (item.Code || item.code || '').trim();
+            if (twSet[code]) {
+              var price = parseFloat(item.ClosingPrice || item.closingPrice || 0);
+              var name = (item.Name || item.name || '').trim();
+              if (price > 0) LP['s:' + code] = price;
+              if (name) NM[code] = name;
+            }
+          });
+        }
+      } catch(e){}
+    })(),
+    // 2. 上櫃股票全面修復抓取
+    (async () => {
+      try {
+        var res = await fetchRetry(tpexUrl, { signal: AbortSignal.timeout(4000) }, 2, 200);
+        var d = await res.json();
+        if (d && Array.isArray(d.aaData)) {
+          d.aaData.forEach(item => {
+            var code = (item[0] || '').trim();
+            if (twSet[code]) {
+              var price = parseFloat(item[2] || 0);
+              var name = (item[1] || '').trim();
+              if (price > 0) LP['s:' + code] = price;
+              if (name) NM[code] = name;
+            }
+          });
+        }
+      } catch(e){}
+    })()
+  ]);
+
+  // 3. 針對未成功取得（或美股代號誤寫）的股票，進行 Finnhub/備援穿透
+  var fKey = C.FKEY || 'demo';
+  for (var i = 0; i < twSymbols.length; i++) {
+    var code = twSymbols[i];
+    if (!LP['s:' + code]) { 
+      try {
+        // 因 Yahoo 已阻擋 Proxy，改透過 Finnhub 的國際通用報價作為終極兜底防線
+        var targetSym = (code.match(/^\d+$/)) ? code + '.TW' : code;
+        var res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${targetSym}&token=${fKey}`, { signal: AbortSignal.timeout(3000) });
+        var d = await res.json();
+        if (d && d.c && parseFloat(d.c) > 0) {
+          LP['s:' + code] = parseFloat(d.c);
+        }
+      } catch(err){}
+    }
+  }
+}
+
+async function fetchUsStocks(){
+  var usSet={};
+  ['cathay_us','firstrade'].forEach(k=>{
+    (H[k]||[]).forEach(r=>{ if(r.sym) usSet[r.sym.trim().toUpperCase()]=true; });
+  });
+  var symbols=Object.keys(usSet); if(!symbols.length) return;
+
+  var key=C.FKEY || 'demo';
+  // ⚡ 修正：因美股經過 Proxy 走 Yahoo 會拋出 401，改採多路前端直接連 Finnhub API 機制
+  for(var i=0; i<symbols.length; i++){
+    var sym=symbols[i];
+    try{
+      var url='https://finnhub.io/api/v1/quote?symbol='+sym+'&token='+key;
+      var res=await fetch(url,{signal:AbortSignal.timeout(3000)});
+      var d=await res.json(); 
+      if(d && d.c && parseFloat(d.c) > 0) {
+        LP['s:'+sym]=parseFloat(d.c);
+      }
+    }catch(err){}
+  }
+}
+
+async function fetchCrypto(){
+  var cSet={};
+  ['binance','ledger'].forEach(k=>{
+    (H[k]||[]).forEach(r=>{ if(r.sym) cSet[r.sym.trim().toUpperCase()+'USDT']=true; });
+  });
+  if(!Object.keys(cSet).length) return;
+
+  try {
+    var resDirect = await fetch('https://api.binance.com/api/v3/ticker/price', { signal: AbortSignal.timeout(4000) });
+    var arrD = await resDirect.json();
+    if(Array.isArray(arrD)){
+      arrD.forEach(item=>{
+        if(cSet[item.symbol]){
+          var coin=item.symbol.replace('USDT',''); LP['c:'+coin]=parseFloat(item.price);
+        }
+      });
+    }
+  } catch(err){}
+}
+
+async function fetchFx(){
+  try{
+    var res=await fetch('https://open.er-api.com/v6/latest/USD',{signal:AbortSignal.timeout(4000)});
+    var data=await res.json(); 
+    if(data && data.rates && data.rates.TWD) {
+      C.FX = parseFloat(data.rates.TWD);
+      saveConfig();
+    }
+  }catch(e) {}
+}
+
+function renderAll(){
+  var upTxt="最後更新: "+(H.lastUpdate?new Date(H.lastUpdate).toLocaleString():'未更新');
+  var dUpd=document.getElementById('d-upd'); if(dUpd) dUpd.textContent=upTxt;
+
+  var oSum={ tw:{cost:0,val:0}, us:{cost:0,val:0}, crypto:{cost:0,val:0} };
+
+  CATS.forEach(cat=>{
+    var isTw=cat.endsWith('_tw') || cat==='sinopac';
+    var isUs=cat.endsWith('_us') || cat==='firstrade';
+    var subGroup = isTw ? 'tw' : (isUs ? 'us' : 'crypto');
+    var unit = (subGroup==='crypto') ? '顆' : '股';
+    var arr=H[cat]||[]; var htmlM='', htmlD='';
+
+    if(!arr.length){
+      var emp='<div class="emptytd">尚無持倉，點擊右上角新增</div>';
+      var empD='<tr><td colspan="9" class="emptytd">尚無持倉，點擊右上角新增</td></tr>';
+      var elM=document.getElementById('mt-'+cat), elD=document.getElementById('dt-'+cat);
+      if(elM) elM.innerHTML=emp; if(elD) elD.innerHTML=empD; return;
+    }
+
+    arr.forEach((item,idx)=>{
+      var sym=item.sym.trim().toUpperCase();
+      var price= (subGroup==='crypto') ? (LP['c:'+sym]||0) : (LP['s:'+sym]||0);
+
+      var qty=parseFloat(item.qty)||0; var cost=parseFloat(item.cost)||0;
+      var totalCost=qty*cost; var totalVal=qty*price;
+      var pnl=price > 0 ? (totalVal - totalCost) : 0;
+      var roi=totalCost > 0 ? (pnl / totalCost * 100) : 0;
+
+      if(price>0){ oSum[subGroup].cost += totalCost; oSum[subGroup].val += totalVal; }
+
+      var displayName = NM[sym] ? (sym + ' ' + NM[sym]) : sym;
+
+      var pStr=price > 0 ? price.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) : '<span class="pspin"></span>';
+      var vStr=price > 0 ? totalVal.toLocaleString(undefined,{maximumFractionDigits:0}) : '--';
+      var pnlClass=pnl>0?'cG':(pnl<0?'cR':'');
+      var pnlStr=price > 0 ? (pnl>=0?'+':'')+pnl.toLocaleString(undefined,{maximumFractionDigits:0}) : '--';
+      var roiStr=price > 0 ? (roi>=0?'+':'')+roi.toFixed(2)+'%' : '--';
+
+      htmlM += `
+      <div class="m-row-card">
+        <div class="m-line1">
+          <div style="display:flex;flex-direction:column;max-width:65%">
+            <span class="tick" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${displayName}</span>
+            <span class="nsub">${qty.toLocaleString()} ${unit} · 成本 ${cost.toLocaleString()}</span>
+          </div>
+          <div style="text-align:right">
+            <div class="tick">${vStr}</div>
+            <div class="${pnlClass}" style="font-size:12px;margin-top:2px">${roiStr} (${pnlStr})</div>
+          </div>
+        </div>
+        <div class="m-line2">
+          <span>現價: ${pStr}</span>
+          <div class="m-actions">
+            <span style="font-size:11px;color:var(--tx3)">${item.date||''}</span>
+            <span style="color:var(--bl);font-weight:600" onclick="openModal('${cat}',${idx})">編輯</span>
+            <span style="color:var(--rd);font-weight:600;margin-left:4px" onclick="delAsset('${cat}',${idx})">刪除</span>
+          </div>
+        </div>
+      </div>`;
+
+      htmlD += `
+      <tr>
+        <td style="text-align:left"><span class="tick">${displayName}</span><span class="nsub">${item.date||'--'}</span></td>
+        <td class="R">${cost.toLocaleString(undefined,{minimumFractionDigits:2})}</td>
+        <td class="R">${qty.toLocaleString()}</td>
+        <td class="R">${pStr}</td>
+        <td class="R" style="font-weight:600">${vStr}</td>
+        <td class="R ${pnlClass}">${pnlStr}</td>
+        <td class="R ${pnlClass}">${roiStr}</td>
+        <td class="R" style="color:var(--tx2);font-size:11px">${item.date||'--'}</td>
+        <td class="R">
+          <div class="acts">
+            <button class="ibtn" onclick="openModal('${cat}',${idx})">✏️</button>
+            <button class="ibtn" onclick="delAsset('${cat}',${idx})">🗑️</button>
+          </div>
+        </td>
+      </tr>`;
+    });
+
+    var elM=document.getElementById('mt-'+cat), elD=document.getElementById('dt-'+cat);
+    if(elM) elM.innerHTML=htmlM; if(elD) elD.innerHTML=htmlD;
+  });
+
+  renderOverview(oSum);
+}
+
+function renderOverview(oSum){
+  var isTwd=C.CUR==='TWD'; var fx=C.FX||32.5;
+  var twdTwV = oSum.tw.val;
+  var twdUsV = oSum.us.val * fx;
+  var twdCryptoV = oSum.crypto.val * fx;
+  var totTwd = twdTwV + twdUsV + twdCryptoV;
+
+  var twdTwC = oSum.tw.cost;
+  var twdUsC = oSum.us.cost * fx;
+  var twdCryptoC = oSum.crypto.cost * fx;
+  var totTwdCost = twdTwC + twdUsC + twdCryptoC;
+
+  var displayTot = isTwd ? totTwd : (totTwd / fx);
+  var displayCost = isTwd ? totTwdCost : (totTwdCost / fx);
+  var totPnl = displayTot - displayCost;
+  var totRoi = displayCost > 0 ? (totPnl / displayCost * 100) : 0;
+  var sym = isTwd ? 'NT$' : '$';
+
+  var mClass=totPnl>0?'g':(totPnl<0?'r':'');
+  var pnlSign=totPnl>=0?'+':'';
+
+  var metHtml=`
+  <div class="mc" style="grid-column:1/-1;background:linear-gradient(135deg,var(--bg3),var(--bg4));border-color:var(--b2)">
+    <div class="mclbl">總資產淨值 (${C.CUR})</div>
+    <div class="mcval" style="font-size:28px;color:#fff">${sym} ${displayTot.toLocaleString(undefined,{maximumFractionDigits:0})}</div>
+    <div class="mcsub">美元匯率估算: <span style="color:var(--tx);font-weight:600">${fx.toFixed(2)}</span> TWD</div>
+  </div>
+  <div class="mc">
+    <div class="mclbl">總累積損益</div>
+    <div class="mcval ${mClass}">${pnlSign}${totPnl.toLocaleString(undefined,{maximumFractionDigits:0})}</div>
+  </div>
+  <div class="mc">
+    <div class="mclbl">總投資報酬率</div>
+    <div class="mcval ${mClass}">${pnlSign}${totRoi.toFixed(2)}%</div>
+  </div>`;
+  
+  var mMet=document.getElementById('m-met'), dMet=document.getElementById('d-met');
+  if(mMet) mMet.innerHTML=metHtml; if(dMet) dMet.innerHTML=metHtml;
+
+  var alData=[
+    {name:'台股資產', val:isTwd?twdTwV:(twdTwV/fx), cost:isTwd?twdTwC:(twdTwC/fx), dot:'var(--tl)', sub:'國泰 / 永豐'},
+    {name:'美股資產', val:isTwd?twdUsV:(twdUsV/fx), cost:isTwd?twdUsC:(twdUsC/fx), dot:'var(--bl)', sub:'複委託 / Firstrade'},
+    {name:'加密貨幣', val:isTwd?twdCryptoV:(twdCryptoV/fx), cost:isTwd?twdCryptoC:(twdCryptoC/fx), dot:'var(--pu)', sub:'Binance / Ledger'}
+  ];
+
+  var alHtml='';
+  alData.forEach(d=>{
+    var pnl = d.val - d.cost;
+    var roi = d.cost > 0 ? (pnl / d.cost * 100) : 0;
+    var pClass=pnl>0?'cG':(pnl<0?'cR':'');
+    alHtml += `
+    <div class="al-row-card">
+      <div class="al-line1">
+        <div class="al-cell-left"><span class="aldot" style="background:${d.dot}"></span><span class="alname">${d.name}</span></div>
+        <div class="tick">${sym} ${d.val.toLocaleString(undefined,{maximumFractionDigits:0})}</div>
+      </div>
+      <div class="al-line2">
+        <span class="alval-txt">${d.sub}</span>
+        <div class="${pClass}"><span>${roi>=0?'+':''}${roi.toFixed(1)}%</span><span style="font-size:11px;margin-left:4px;opacity:.7">(${pnl>=0?'+':''}${Math.round(pnl).toLocaleString()})</span></div>
+      </div>
+    </div>`;
+  });
+  var mAl=document.getElementById('m-al'), dAl=document.getElementById('d-al');
+  if(mAl) mAl.innerHTML=alHtml; if(dAl) dAl.innerHTML=alHtml;
+
+  updateCharts(twdTwV, twdUsV, twdCryptoV);
+}
+
+function updateCharts(tw,us,crypto){
+  var tot=tw+us+crypto;
+  var dataVals=[0,0,0];
+  if(tot>0){ dataVals=[Math.round(tw/tot*100), Math.round(us/tot*100), Math.round(crypto/tot*100)]; }
+
+  ['m-ch','d-ch'].forEach(id=>{
+    var el=document.getElementById(id); if(!el)return;
+    var ctx=el.getContext('2d');
+    if(id==='m-ch' && chartObj && chartObj.m){ chartObj.m.destroy(); }
+    if(id==='d-ch' && chartObj && chartObj.d){ chartObj.d.destroy(); }
+
+    var config={
+      type:'doughnut',
+      data:{
+        labels:['台股','美股','加密貨幣'],
+        datasets:[{
+          data:dataVals,
+          backgroundColor:['#29c4a2','#4b8ef0','#8f72f2'],
+          borderWidth:0,
+          hoverOffset:4
+        }]
+      },
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        plugins:{
+          legend:{display:true,position:'bottom',labels:{color:'#7c839a',boxWidth:12,font:{size:11}}},
+          datalabels:{
+            color:'#fff',
+            font:{weight:'bold',size:12},
+            formatter:(val)=>{return val>0 ? val+'%' : '';}
+          }
+        },
+        cutout:'70%'
+      }
+    };
+
+    var instance = new Chart(ctx, config);
+    if(!chartObj) chartObj={m:null,d:null};
+    if(id==='m-ch') chartObj.m=instance; else chartObj.d=instance;
+  });
+}
+
+function switchTab(name){
+  TABS.forEach(t=>{
+    var mp=document.getElementById('mp-'+t), mtab=document.getElementById('mtab-'+t);
+    var dp=document.getElementById('dp-'+t), dnav=document.getElementById('dnav-'+t);
+    if(mp) mp.classList.toggle('on',t===name); if(mtab) mtab.classList.toggle('on',t===name);
+    if(dp) dp.classList.toggle('on',t===name); if(dnav) dnav.classList.toggle('on',t===name);
+  });
+  if(name==='settings') renderSettings();
+}
+
+function openModal(cat,idx=null){
+  editState={cat:cat,idx:idx};
+  document.getElementById('form-cat').value=cat;
+  document.getElementById('form-idx').value=idx!==null?idx:'';
+  
+  var isCrypto = cat==='binance' || cat==='ledger';
+  document.getElementById('lbl-cost').textContent = isCrypto ? '買入成本 (USD)' : '買入成本';
+  document.getElementById('lbl-qty').textContent = isCrypto ? '持倉數量 (顆)' : '持倉數量';
+
+  if(idx!==null){
+    document.getElementById('modalTitle').textContent='編輯資產';
+    var r=(H[cat]||[])[idx];
+    if(r){
+      document.getElementById('form-sym').value=r.sym;
+      document.getElementById('form-cost').value=r.cost;
+      document.getElementById('form-qty').value=r.qty;
+      document.getElementById('form-date').value=r.date||'';
+    }
+  }else{
+    document.getElementById('modalTitle').textContent='新增資產';
+    document.getElementById('form-sym').value='';
+    document.getElementById('form-cost').value='';
+    document.getElementById('form-qty').value='';
+    document.getElementById('form-date').value=new Date().toISOString().split('T')[0];
+  }
+  document.getElementById('modalBg').classList.add('on');
+}
+
+function closeModal(){ document.getElementById('modalBg').classList.remove('on'); }
+
+function saveForm(){
+  var cat=document.getElementById('form-cat').value;
+  var idxStr=document.getElementById('form-idx').value;
+  var sym=document.getElementById('form-sym').value.trim().toUpperCase();
+  var cost=parseFloat(document.getElementById('form-cost').value);
+  var qty=parseFloat(document.getElementById('form-qty').value);
+  var date=document.getElementById('form-date').value;
+
+  if(!sym || isNaN(cost) || isNaN(qty)){ toast('⚠️ 請完整填寫代號、成本與數量'); return; }
+  if(!H[cat]) H[cat]=[];
+
+  var row={sym:sym,cost:cost,qty:qty,date:date};
+  if(idxStr!==''){ H[cat][idxStr]=row; toast('✅ 資產修改完成'); }
+  else{ H[cat].push(row); toast('✅ 新增資產成功'); }
+
+  saveConfig(); closeModal(); renderAll(); gistPush();
+}
+
+function delAsset(cat,idx){
+  if(confirm('確定要刪除這筆持倉資產嗎？')){
+    (H[cat]||[]).splice(idx,1); saveConfig(); renderAll(); toast('🗑️ 資產已刪除'); gistPush();
+  }
+}
+
+function toast(msg){
+  var el=document.getElementById('toast'); if(!el)return;
+  el.textContent=msg; el.classList.add('on');
+  clearTimeout(window.tTimer); window.tTimer=setTimeout(()=>{el.classList.remove('on')},2500);
+}
+
+function renderSettings(){
+  var html=`
+  <div class="scard">
+    <h3>☁️ GitHub Gist 雲端備份同步</h3>
+    <p class="scard-sub">將你的加密 Token 與 Gist ID 輸入於下方，資產變動時會自動同步備份。</p>
+    <div class="frow"><div class="flbl">GitHub Token</div><input type="password" id="s-token" class="finput" value="${C.TOKEN||''}"></div>
+    <div class="frow"><div class="flbl">Gist ID</div><input type="text" id="s-gid" class="finput" value="${C.GID||''}"></div>
+    <div class="frow"><div class="flbl">Finnhub Key</div><input type="text" id="s-fkey" class="finput" value="${C.FKEY||''}"></div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="sbtn" onclick="saveSettings()">儲存設定</button>
+      <button class="sbtn2" onclick="gistPull(false, true)">☁️ 強制從雲端覆蓋下載</button>
+    </div>
+  </div>
+  <div class="scard" style="border-color:rgba(232,80,74,.2)">
+    <h3 style="color:var(--rd)">⚠️ 危險區域</h3>
+    <p class="scard-sub">清除本機所有快取持倉數據。此動作無法還原，請確保你已做好備份。</p>
+    <button class="sbtn-danger" onclick="clearAllData()">清除本機所有數據</button>
+  </div>`;
+  var mSet=document.getElementById('m-set'), dSet=document.getElementById('dp-settings');
+  if(mSet) mSet.innerHTML=html; if(dSet) dSet.innerHTML=html;
+}
+
+function saveSettings(){
+  C.TOKEN=document.getElementById('s-token').value.trim();
+  C.GID=document.getElementById('s-gid').value.trim();
+  C.FKEY=document.getElementById('s-fkey').value.trim();
+  saveConfig(); toast('⚙️ 設定已儲存成功！');
+}
+
+function clearAllData(){
+  if(confirm('🔥 警告：這將會徹底抹除所有設定與持倉數據！確定執行？')){
+    localStorage.clear(); H={tw:[],us:[],crypto:[],lastUpdate:0}; LP={}; NM={};
+    C={TOKEN:'',GID:'',FKEY:'',FX:32.5,CUR:'TWD'}; saveConfig(); window.location.reload();
+  }
+}
+
+async function gistPush(){
+  if(!C.TOKEN || !C.GID) return;
+  try{
+    var payload={ files:{ "portfolio_v2.json":{ content:JSON.stringify(H) } } };
+    await fetch('https://api.github.com/gists/'+C.GID,{
+      method:'PATCH',headers:{ 'Authorization':'token '+C.TOKEN,'Content-Type':'application/json' },
+      body:JSON.stringify(payload)
+    });
+  }catch(e){console.error("雲端備份回寫失敗",e)}
+}
+
+async function gistPull(isInit, forceForce=false){
+  if(!C.TOKEN || !C.GID){ if(isInit) fetchAll(); return; }
+  try{
+    var res=await fetch('https://api.github.com/gists/'+C.GID,{ headers:{ 'Authorization':'token '+C.TOKEN } });
+    if(res.ok){
+      var data=await res.json();
+      if(data.files && data.files["portfolio_v2.json"]){
+        var cloudH=JSON.parse(data.files["portfolio_v2.json"].content);
+        var localEmpty = (!H.tw?.length && !H.us?.length && !H.crypto?.length);
+        if(cloudH && (forceForce || localEmpty || (cloudH.lastUpdate || 0) > (H.lastUpdate || 0))){ 
+          H=cloudH; saveConfig(); if(!isInit) toast('☁️ 雲端資產同步成功！');
+        }
+      }
+    } else if(!isInit) {
+      toast('❌ 雲端拉取失敗，請檢查 Token 與 Gist ID。');
+    }
+  }catch(e){console.error("雲端資產拉取失敗",e)}
+  if(isInit) fetchAll(); else renderAll();
+}
+
+window.onload=init;
+</script>
+</body>
+</html>
