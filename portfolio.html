@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="資產總覽">
+<meta name="theme-color" content="#0d0f18">
+<title>資產總覽</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+<style>
+/* ── Reset & Tokens ─────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0d0f18;--bg2:#141720;--bg3:#1a1e2e;--bg4:#202436;
+  --b1:rgba(255,255,255,.07);--b2:rgba(255,255,255,.13);
+  --tx:#e4e7f0;--tx2:#7c839a;--tx3:#454c62;
+  --gr:#27c27e;--rd:#e8504a;--bl:#4b8ef0;
+  --pu:#8f72f2;--tl:#29c4a2;--am:#e8a020;
+  --r:10px;--rsm:6px;
+  --sb:env(safe-area-inset-bottom,0px);
+  --st:env(safe-area-inset-top,0px);
+}
+html{font-size:14px;background:var(--bg);overflow-x:hidden}
+body{color:var(--tx);font-family:-apple-system,'Segoe UI',sans-serif;min-height:100dvh;background:var(--bg);overflow-x:hidden;width:100%}
+button,input,select{font-family:inherit;font-size:16px}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:var(--b2);border-radius:3px}
+
+/* ── Mobile Layout ─────────────────────────── */
+.mob{display:flex;flex-direction:column;min-height:100dvh;width:100%;overflow-x:hidden}
+.dsk{display:none}
+
+.mhdr{padding:calc(var(--st)+12px) 14px 10px;background:var(--bg2);flex-shrink:0;z-index:50;border-bottom:1px solid var(--b1);position:sticky;top:0}
+.mhdr-row{display:flex;align-items:center;justify-content:space-between}
+.logo{font-size:18px;font-weight:700;letter-spacing:-.4px}
+.logo em{color:var(--bl);font-style:normal}
+.hdr-r{display:flex;gap:8px;align-items:center}
+
+.cpill{display:flex;border:1px solid var(--b2);border-radius:20px;overflow:hidden;background:var(--bg)}
+.cpill button{background:none;border:none;padding:5px 12px;font-size:13px;color:var(--tx2);cursor:pointer;font-weight:500}
+.cpill button.on{background:var(--bl);color:#fff;font-weight:600;border-radius:20px}
+
+.rbtn{display:flex;align-items:center;gap:5px;background:var(--bg3);border:1px solid var(--b2);border-radius:20px;padding:5px 14px;font-size:13px;color:var(--tx);cursor:pointer;white-space:nowrap;font-weight:500}
+.rbtn:active{opacity:.7}
+.rbtn.spin svg{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.mbody{flex:1;padding:14px 14px calc(80px + var(--sb));width:100%;overflow-x:hidden}
+
+.mtabs{position:fixed;bottom:0;left:0;right:0;background:rgba(20,23,32,.94);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid var(--b1);display:flex;padding-bottom:var(--sb);z-index:100}
+.mtab{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 0 6px;gap:3px;background:none;border:none;cursor:pointer;color:var(--tx3);font-size:10px;font-weight:600}
+.mtab.on{color:var(--bl)}
+.mtab svg{width:22px;height:22px}
+
+.mpanel{display:none;width:100%}
+.mpanel.on{display:block}
+
+/* ── Desktop Layout (≥768px) ───────────────── */
+@media(min-width:768px){
+  .mob{display:none}
+  .dsk{display:grid;grid-template-columns:220px 1fr;grid-template-rows:56px 1fr;min-height:100dvh;width:100%}
+  .dtop{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:var(--bg2);border-bottom:1px solid var(--b1);position:sticky;top:0;z-index:60}
+  .dtop .logo{font-size:16px}
+  .dtop-r{display:flex;align-items:center;gap:14px}
+  .dupd{font-size:12px;color:var(--tx2)}
+  .dside{background:var(--bg2);border-right:1px solid var(--b1);padding:14px 0;position:sticky;top:56px;height:calc(100dvh - 56px);overflow-y:auto}
+  .dnav{display:flex;align-items:center;gap:10px;padding:12px 18px;cursor:pointer;font-size:13px;color:var(--tx2);border-left:3px solid transparent;transition:all .15s}
+  .dnav:hover{color:var(--tx);background:var(--bg3)}
+  .dnav.on{color:var(--tx);border-left-color:var(--bl);background:var(--bg3);font-weight:600}
+  .dnav svg{width:16px;height:16px;flex-shrink:0;opacity:.7}
+  .dseclbl{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.08em;padding:16px 18px 6px;font-weight:700}
+  .dmain{padding:24px 28px;overflow-x:hidden}
+  .dpanel{display:none}
+  .dpanel.on{display:block}
+}
+
+/* ── Shared Panels & Cards ─────────────────── */
+.sbar{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--tx2);margin-bottom:14px;padding:10px 14px;background:var(--bg3);border:1px solid var(--b1);border-radius:var(--rsm)}
+.sdot{width:6px;height:6px;border-radius:50%;flex-shrink:0;background:var(--tx3)}
+.sdot.ok{background:var(--gr)}.sdot.ld{background:var(--am);animation:pulse 1s infinite}.sdot.er{background:var(--rd)}
+
+.metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px;width:100%}
+.mc{background:var(--bg3);border:1px solid var(--b1);border-radius:var(--r);padding:14px 16px}
+.mclbl{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;font-weight:700}
+.mcval{font-size:20px;font-weight:700;letter-spacing:-.5px;line-height:1.1;font-variant-numeric:tabular-nums}
+@media(min-width:768px){.mcval{font-size:24px}}
+.mcval.g{color:var(--gr)}.mcval.r{color:var(--rd)}
+.mcsub{font-size:11px;color:var(--tx2);margin-top:5px}
+
+.ovgrid{display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:18px;width:100%}
+@media(min-width:992px){.ovgrid{grid-template-columns:1fr 1.2fr}}
+
+.card{background:var(--bg3);border:1px solid var(--b1);border-radius:var(--r);padding:16px;width:100%;min-width:0;overflow:hidden;position:relative}
+.cardt{font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px}
+
+.chwrap{position:relative;height:240px;width:100%;max-width:280px;margin:10px auto}
+
+.tblwrap{border-radius:var(--r);border:1px solid var(--b1);overflow:hidden;background:var(--bg3);width:100%}
+.p-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+.p-table th { padding: 10px 8px; font-size: 11px; font-weight: 600; color: var(--tx3); text-transform: uppercase; letter-spacing:.05em; background: var(--bg4); border-bottom: 1px solid var(--b1); }
+.p-table td { padding: 12px 8px; border-bottom: 1px solid var(--b1); color: var(--tx); vertical-align: middle; font-variant-numeric: tabular-nums; }
+.p-table tr:last-child td { border-bottom: none; }
+
+.al-list { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.al-row-card { background: var(--bg4); border: 1px solid var(--b1); border-radius: var(--rsm); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.al-line1, .al-line2 { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.al-line2 { border-top: 1px dashed var(--b1); padding-top: 6px; font-size: 12px; }
+.al-cell-left { display: flex; align-items: center; gap: 6px; }
+.alname { font-weight: 700; color: var(--tx); }
+.alval-txt { font-size: 11px; color: var(--tx2); }
+.aldot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.al-subitem { color: var(--tx2); font-size: 11px; }
+.al-subitem span { color: var(--tx); font-variant-numeric: tabular-nums; font-weight: 500; margin-left: 2px; }
+
+.sec{margin-bottom:24px;width:100%}
+.sechdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.badge{font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px}
+.bCrypto{background:rgba(143,114,242,.15);color:var(--pu)}
+.bUs{background:rgba(75,142,240,.15);color:var(--bl)}
+.bTw{background:rgba(41,196,162,.15);color:var(--tl)}
+.addbtn{background:none;border:1px solid var(--b2);border-radius:var(--rsm);padding:6px 14px;font-size:12px;color:var(--tx);cursor:pointer;font-weight:500}
+
+.cG{color:var(--gr);font-weight:600}.cR{color:var(--rd);font-weight:600}
+.tick{font-weight:700;font-size:13px;letter-spacing:.02em}
+.nsub{font-size:11px;color:var(--tx2);display:block;margin-top:2px}
+.pspin{width:10px;height:10px;border:1.5px solid var(--b2);border-top-color:var(--bl);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+
+.acts{display:flex;gap:4px;justify-content:flex-end;align-items:center}
+.ibtn{background:none;border:none;width:28px;height:28px;border-radius:6px;color:var(--tx2);cursor:pointer;font-size:14px;display:inline-flex;align-items:center;justify-content:center}
+.ibtn:hover{background:var(--bg4);color:var(--tx)}
+.emptytd{text-align:center;color:var(--tx3);padding:32px 12px;font-size:13px}
+
+.scard{background:var(--bg3);border:1px solid var(--b1);border-radius:var(--r);padding:18px;max-width:520px;margin-bottom:16px}
+.scard h3{font-size:14px;font-weight:600;margin-bottom:4px}
+.scard-sub{font-size:12px;color:var(--tx2);margin-bottom:16px;line-height:1.5}
+.frow{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+@media(min-width:600px){.frow{flex-direction:row;align-items:center;gap:12px}}
+.flbl{font-size:13px;color:var(--tx2);width:140px;flex-shrink:0}
+.finput{width:100%;background:var(--bg4);border:1px solid var(--b2);border-radius:var(--rsm);padding:10px 12px;font-size:14px;color:var(--tx)}
+.finput:focus{outline:none;border-color:var(--bl)}
+.sbtn{background:var(--bl);border:none;border-radius:var(--rsm);padding:10px 22px;font-size:13px;color:#fff;font-weight:600;cursor:pointer}
+.sbtn2{background:var(--bg4);color:var(--tx2);border:1px solid var(--b2);border-radius:var(--rsm);padding:10px 16px;font-size:13px;cursor:pointer}
+.sbtn-danger{background:rgba(232,80,74,.12);color:var(--rd);border:1px solid rgba(232,80,74,.25);border-radius:var(--rsm);padding:10px 18px;font-size:13px;cursor:pointer}
+
+/* ── Modal Popups ──────────────────────────── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:200;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+@media(min-width:768px){.modal-bg{align-items:center;padding:20px}}
+.modal-bg.on{opacity:1;pointer-events:all}
+.modal{background:var(--bg2);border:1px solid var(--b2);border-radius:20px 20px 0 0;padding:16px 20px calc(24px + var(--sb));width:100%;max-width:460px;transform:translateY(100%);transition:transform .25s cubic-bezier(0.1, 0.76, 0.55, 0.94);max-height:92dvh;overflow-y:auto}
+@media(min-width:768px){.modal{border-radius:16px;transform:scale(0.95);max-height:none}}
+.modal-bg.on .modal{transform:translateY(0)}
+@media(min-width:768px){.modal-bg.on .modal{transform:scale(1)}}
+.hbar{width:36px;height:4px;background:var(--b2);border-radius:2px;margin:0 auto 14px}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.modal-hdr h3{font-size:16px;font-weight:600}
+.modal-close{background:none;border:none;color:var(--tx2);font-size:24px;cursor:pointer}
+.modal-footer{display:flex;gap:10px;margin-top:20px}
+.modal-footer .sbtn{flex:2}
+.modal-footer .sbtn2{flex:1}
+
+#toast{position:fixed;bottom:calc(84px + var(--sb));left:50%;transform:translateX(-50%);background:var(--bg4);border:1px solid var(--b2);border-radius:20px;padding:10px 22px;font-size:12px;color:var(--tx);opacity:0;transition:opacity .2s;pointer-events:none;z-index:999;box-shadow:0 6px 26px rgba(0,0,0,.5)}
+@media(min-width:768px){#toast{bottom:28px}}
+#toast.on{opacity:1}
+</style>
+</head>
+<body>
+
+<div class="mob">
+  <header class="mhdr">
+    <div class="mhdr-row">
+      <div class="logo">資產<em>總覽</em></div>
+      <div class="hdr-r">
+        <div class="cpill">
+          <button id="mb-twd" class="on" onclick="setCur('TWD')">TWD</button>
+          <button id="mb-usd" onclick="setCur('USD')">USD</button>
+        </div>
+        <button class="rbtn" id="m-rbtn" onclick="fetchAll()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+          刷新
+        </button>
+      </div>
+    </div>
+  </header>
+  <div class="mbody">
+    <div id="msbar" class="sbar" style="display:none"><span class="sdot" id="msdot"></span><span id="mstxt"></span></div>
+    
+    <div id="mp-overview" class="mpanel on">
+      <div class="metrics" id="m-met"></div>
+      <div class="ovgrid">
+        <div class="card">
+          <div class="cardt">資產配置比例</div>
+          <div class="chwrap"><canvas id="m-ch"></canvas></div>
+        </div>
+        <div class="card"><div class="cardt">各類別損益明細</div><div id="m-al" class="al-list"></div></div>
+      </div>
+    </div>
+
+    <div id="mp-tw" class="mpanel">
+      <div class="sec">
+        <div class="sechdr"><span class="badge bTw">國泰證券</span><button class="addbtn" onclick="openModal('cathay_tw')">＋ 新增</button></div>
+        <div class="tblwrap" id="mt-cathay_tw"></div>
+      </div>
+      <div class="sec">
+        <div class="sechdr"><span class="badge bTw">永豐金證券</span><button class="addbtn" onclick="openModal('sinopac')">＋ 新增</button></div>
+        <div class="tblwrap" id="mt-sinopac"></div>
+      </div>
+    </div>
+
+    <div id="mp-us" class="mpanel">
+      <div class="sec">
+        <div class="sechdr"><span class="badge bUs">國泰 複委託</span><button class="addbtn" onclick="openModal('cathay_us')">＋ 新增</button></div>
+        <div class="tblwrap" id="mt-cathay_us"></div>
+      </div>
+      <div class="sec">
+        <div class="sechdr"><span class="badge bUs">Firstrade</span><button class="addbtn" onclick="openModal('firstrade')">＋ 新增</button></div>
+        <div class="tblwrap" id="mt-firstrade"></div>
+      </div>
+    </div>
+
+    <div id="mp-crypto" class="mpanel">
+      <div class="sec">
+        <div class="sechdr"><span class="badge bCrypto">幣安 Binance</span><button class="addbtn" onclick="openModal('binance')">＋ 新增</button></div>
+        <div class="tblwrap" id="mt-binance"></div>
+      </div>
+      <div class="sec">
+        <div class="sechdr"><span class="badge bCrypto">Ledger 冷錢包</span><button class="addbtn" onclick="openModal('ledger')">＋ 新增</button></div>
+        <div class="tblwrap" id="mt-ledger"></div>
+      </div>
+    </div>
+    <div id="mp-settings" class="mpanel"><div id="m-set"></div></div>
+  </div>
+  
+  <nav class="mtabs">
+    <button class="mtab on" id="mtab-overview" onclick="switchTab('overview')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>總覽</button>
+    <button class="mtab" id="mtab-tw" onclick="switchTab('tw')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 4h2m2 0h2m-3-3v2m0 2v2"/></svg>台股</button>
+    <button class="mtab" id="mtab-us" onclick="switchTab('us')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>美股</button>
+    <button class="mtab" id="mtab-crypto" onclick="switchTab('crypto')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 9h4a2 2 0 0 1 0 4H9v4m3-10v-2m0 14v-2m-3-6h6"/></svg>加密貨幣</button>
+    <button class="mtab" id="mtab-settings" onclick="switchTab('settings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>設定</button>
+  </nav>
+</div>
+
+<div class="dsk">
+  <div class="dtop">
+    <div class="logo">資產<em>總覽</em></div>
+    <div class="dtop-r">
+      <span class="dupd" id="d-upd"></span>
+      <div class="cpill">
+        <button id="db-twd" class="on" onclick="setCur('TWD')">TWD</button>
+        <button id="db-usd" onclick="setCur('USD')">USD</button>
+      </div>
+      <button class="rbtn" id="d-rbtn" onclick="fetchAll()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+        刷新價格
+      </button>
+    </div>
+  </div>
+  <nav class="dside">
+    <div class="dseclbl">總覽</div>
+    <div class="dnav on" id="dnav-overview" onclick="switchTab('overview')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>儀表板</div>
+    <div class="dseclbl">帳戶</div>
+    <div class="dnav" id="dnav-tw" onclick="switchTab('tw')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 4h2m2 0h2m-3-3v2m0 2v2"/></svg>台股</div>
+    <div class="dnav" id="dnav-us" onclick="switchTab('us')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>美股</div>
+    <div class="dnav" id="dnav-crypto" onclick="switchTab('crypto')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 9h4a2 2 0 0 1 0 4H9v4m3-10v-2m0 14v-2m-3-6h6"/></svg>加密貨幣</div>
+    <div class="dseclbl">系統</div>
+    <div class="dnav" id="dnav-settings" onclick="switchTab('settings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>設定與同步</div>
+  </nav>
+  
+  <main class="dmain">
+    <div id="dsbar" class="sbar" style="display:none"><span class="sdot" id="dsdot"></span><span id="dstxt"></span></div>
+    
+    <div id="dp-overview" class="dpanel on">
+      <div class="metrics" id="d-met"></div>
+      <div class="ovgrid">
+        <div class="card">
+          <div class="cardt">資產配置比例</div>
+          <div class="chwrap"><canvas id="d-ch"></canvas></div>
+        </div>
+        <div class="card"><div class="cardt">各類別損益明細</div><div id="d-al" class="al-list"></div></div>
+      </div>
+    </div>
+
+    <div id="dp-tw" class="dpanel">
+      <div class="sec">
+        <div class="sechdr"><span class="badge bTw">國泰證券</span><button class="addbtn" onclick="openModal('cathay_tw')">＋ 新增資產</button></div>
+        <div class="tblwrap" id="dt-cathay_tw"></div>
+      </div>
+      <div class="sec">
+        <div class="sechdr"><span class="badge bTw">永豐金證券</span><button class="addbtn" onclick="openModal('sinopac')">＋ 新增資產</button></div>
+        <div class="tblwrap" id="dt-sinopac"></div>
+      </div>
+    </div>
+
+    <div id="dp-us" class="dpanel">
+      <div class="sec">
+        <div class="sechdr"><span class="badge bUs">國泰 複委託</span><button class="addbtn" onclick="openModal('cathay_us')">＋ 新增資產</button></div>
+        <div class="tblwrap" id="dt-cathay_us"></div>
+      </div>
+      <div class="sec">
+        <div class="sechdr"><span class="badge bUs">Firstrade</span><button class="addbtn" onclick="openModal('firstrade')">＋ 新增資產</button></div>
+        <div class="tblwrap" id="dt-firstrade"></div>
+      </div>
+    </div>
+
+    <div id="dp-crypto" class="dpanel">
+      <div class="sec">
+        <div class="sechdr"><span class="badge bCrypto">幣安 Binance</span><button class="addbtn" onclick="openModal('binance')">＋ 新增資產</button></div>
+        <div class="tblwrap" id="dt-binance"></div>
+      </div>
+      <div class="sec">
+        <div class="sechdr"><span class="badge bCrypto">Ledger 冷錢包</span><button class="addbtn" onclick="openModal('ledger')">＋ 新增資產</button></div>
+        <div class="tblwrap" id="dt-ledger"></div>
+      </div>
+    </div>
+    <div id="dp-settings" class="dpanel"><div id="d-set"></div></div>
+  </main>
+</div>
+
+<div id="modal-bg" class="modal-bg" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="hbar"></div>
+    <div class="modal-hdr">
+      <h3 id="modal-title">新增資產</h3>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const TABS=['overview','tw','us','crypto','settings'];
+let H={assets:[],exRates:{USD:32.5,TWD:1},lastUpdate:0};
+let C={TOKEN:'',GID:'',activeCur:'TWD'};
+let charts={m:null,d:null};
+
+const AC_META={
+  cathay_tw:{name:'國泰證券',type:'tw'},
+  sinopac:{name:'永豐金證券',type:'tw'},
+  cathay_us:{name:'國泰 複委託',type:'us'},
+  firstrade:{name:'Firstrade',type:'us'},
+  binance:{name:'幣安 Binance',type:'crypto'},
+  ledger:{name:'Ledger 冷錢包',type:'crypto'}
+};
+
+window.addEventListener('DOMContentLoaded',()=>{
+  loadConfig();
+  gistPull(true);
+});
+
+function loadConfig(){
+  try{
+    let localC=localStorage.getItem('p_config');
+    if(localC) C=Object.assign(C,JSON.parse(localC));
+    let localH=localStorage.getItem('p_holdings');
+    if(localH) H=Object.assign(H,JSON.parse(localH));
+    
+    document.getElementById('mb-twd').classList.toggle('on',C.activeCur==='TWD');
+    document.getElementById('mb-usd').classList.toggle('on',C.activeCur==='USD');
+    document.getElementById('db-twd').classList.toggle('on',C.activeCur==='TWD');
+    document.getElementById('db-usd').classList.toggle('on',C.activeCur==='USD');
+  }catch(e){showToast("組態載入失敗")}
+}
+
+function saveConfig(){
+  try{
+    localStorage.setItem('p_config',JSON.stringify(C));
+    localStorage.setItem('p_holdings',JSON.stringify(H));
+  }catch(e){console.error("儲存失敗",e)}
+}
+
+function showToast(msg){
+  let t=document.getElementById('toast');
+  t.innerText=msg; t.classList.add('on');
+  setTimeout(()=>t.classList.remove('on'),2500);
+}
+
+function switchTab(name){
+  TABS.forEach(t=>{
+    let mp=document.getElementById('mp-'+t), mtab=document.getElementById('mtab-'+t);
+    let dp=document.getElementById('dp-'+t), dnav=document.getElementById('dnav-'+t);
+    if(mp) mp.classList.toggle('on',t===name);
+    if(mtab) mtab.classList.toggle('on',t===name);
+    if(dp) dp.classList.toggle('on',t===name);
+    if(dnav) dnav.classList.toggle('on',t===name);
+  });
+  if(name==='overview') setTimeout(renderOverview,50);
+  else if(TABS.includes(name) && name!=='settings') renderCategoryTables(name);
+  else if(name==='settings') renderSettings();
+}
+
+function setCur(cur){
+  C.activeCur=cur;
+  saveConfig();
+  document.getElementById('mb-twd').classList.toggle('on',cur==='TWD');
+  document.getElementById('mb-usd').classList.toggle('on',cur==='USD');
+  document.getElementById('db-twd').classList.toggle('on',cur==='TWD');
+  document.getElementById('db-usd').classList.toggle('on',cur==='USD');
+  renderAll();
+}
+
+function updateStatus(type,msg){
+  ['msbar','dsbar'].forEach(id=>{
+    let el=document.getElementById(id);
+    if(!el)return;
+    if(type==='hide'){ el.style.display='none'; return; }
+    el.style.display='flex';
+    let dot=el.querySelector('.sdot');
+    dot.className='sdot '+type;
+    el.querySelector('span:last-child').innerText=msg;
+  });
+  let rbm=document.getElementById('m-rbtn'), rbd=document.getElementById('d-rbtn');
+  if(type==='ld'){ if(rbm)rbm.classList.add('spin'); if(rbd)rbd.classList.add('spin'); }
+  else{ if(rbm)rbm.classList.remove('spin'); if(rbd)rbd.classList.remove('spin'); }
+}
+
+async function fetchAll(){
+  updateStatus('ld','同步與更新市價中...');
+  try{
+    let twSymbols=[], cryptoSymbols=[], usSymbols=[];
+    (H.assets||[]).forEach(a=>{
+      if(a.cat==='tw' && !twSymbols.includes(a.sym)) twSymbols.push(a.sym);
+      if(a.cat==='crypto' && !cryptoSymbols.includes(a.sym)) cryptoSymbols.push(a.sym);
+      if(a.cat==='us' && !usSymbols.includes(a.sym)) usSymbols.push(a.sym);
+    });
+
+    let prices={};
+    if(cryptoSymbols.length>0){
+      try{
+        let res=await fetch('https://api.binance.com/api/v3/ticker/price');
+        if(res.ok){
+          let arr=await res.json();
+          arr.forEach(item=>{
+            if(item.symbol.endsWith('USDT')){
+              let base=item.symbol.replace('USDT','');
+              if(cryptoSymbols.includes(base)) prices[base]=parseFloat(item.price);
+            }
+          });
+          prices['USDT']=1;
+        }
+      }catch(e){console.error("加密貨幣價格更新失敗",e)}
+    }
+
+    try{
+      let exRes=await fetch('https://open.er-api.com/v6/latest/USD');
+      if(exRes.ok){
+        let exData=await exRes.json();
+        if(exData.rates && exData.rates.TWD) H.exRates.USD=exData.rates.TWD;
+      }
+    }catch(e){console.error("匯率更新失敗",e)}
+
+    (H.assets||[]).forEach(a=>{
+      if(prices[a.sym]!==undefined) a.prc = prices[a.sym];
+    });
+
+    H.lastUpdate=Date.now();
+    updateStatus('ok','資料更新完成');
+    setTimeout(()=>updateStatus('hide',''),2000);
+    saveConfig();
+    await gistPushBack();
+  }catch(e){
+    updateStatus('er','更新失敗，請檢查網路');
+    setTimeout(()=>updateStatus('hide',''),3000);
+  }
+  renderAll();
+}
+
+/* ── 🚀 修正處：將 data.files["portfolio_v2.json"] 修正為 "portfolio.json" ── */
+async function gistPull(isInit){
+  if(!C.TOKEN || !C.GID){ if(isInit) fetchAll(); return; }
+  try{
+    let res=await fetch('https://api.github.com/gists/'+C.GID,{
+      headers:{ 'Authorization':'token '+C.TOKEN }
+    });
+    if(res.ok){
+      let data=await res.json();
+      if(data.files && data.files["portfolio.json"]){
+        let cloudH=JSON.parse(data.files["portfolio.json"].content);
+        if(cloudH && (cloudH.lastUpdate || 0) > (H.lastUpdate || 0)){
+          H=cloudH;
+          saveConfig();
+        }
+      }
+    }
+  }catch(e){console.error("雲端資產拉取失敗",e)}
+  if(isInit) fetchAll();
+}
+
+/* ── 🚀 修正處：同步將寫入目標也指向 "portfolio.json" ── */
+async function gistPushBack(){
+  if(!C.TOKEN || !C.GID) return;
+  try {
+    let payload={ files:{ "portfolio.json":{ content:JSON.stringify(H) } } };
+    await fetch('https://api.github.com/gists/'+C.GID,{
+      method:'PATCH',
+      headers:{ 'Authorization':'token '+C.TOKEN, 'Content-Type':'application/json' },
+      body:JSON.stringify(payload)
+    });
+  }catch(e){console.error("雲端備份回寫失敗",e)}
+}
+
+function renderAll(){
+  let dStr=H.lastUpdate? new Date(H.lastUpdate).toLocaleTimeString():'未更新';
+  let updEl=document.getElementById('d-upd'); if(updEl) updEl.innerText='最後更新: '+dStr;
+  renderOverview();
+  ['tw','us','crypto'].forEach(renderCategoryTables);
+}
+
+function calcAssetValues(a){
+  let valUSD=0, costUSD=0;
+  let prc=a.prc||0, qty=a.qty||0, cost=a.cost||0;
+  if(a.cat==='tw'){
+    let valTWD=qty*prc; let costTWD=qty*cost;
+    valUSD=valTWD/H.exRates.USD; costUSD=costTWD/H.exRates.USD;
+  }else if(a.cat==='us' || a.cat==='crypto'){
+    valUSD=qty*prc; costUSD=qty*cost;
+  }
+  let vNav=C.activeCur==='TWD'? valUSD*H.exRates.USD : valUSD;
+  let vCost=C.activeCur==='TWD'? costUSD*H.exRates.USD : costUSD;
+  let pnl=vNav-vCost;
+  let pnlP=vCost>0? (pnl/vCost)*100 : 0;
+  return {nav:vNav, cost:vCost, pnl:pnl, pnlP:pnlP};
+}
+
+function renderOverview(){
+  let totNav=0, totCost=0, catNav={tw:0,us:0,crypto:0}, catCost={tw:0,us:0,crypto:0};
+  (H.assets||[]).forEach(a=>{
+    let info=calcAssetValues(a);
+    totNav+=info.nav; totCost+=info.cost;
+    if(catNav[a.cat]!==undefined){ catNav[a.cat]+=info.nav; catCost[a.cat]+=info.cost; }
+  });
+
+  let totPnl=totNav-totCost;
+  let totPnlP=totCost>0? (totPnl/totCost)*100 : 0;
+  let sign='$';
+  let curLbl=C.activeCur;
+
+  let metHtml=`
+    <div class="mc"><div class="mclbl">總資產淨值 (${curLbl})</div><div class="mcval">${sign}${totNav.toLocaleString(undefined,{maximumFractionDigits:0})}</div><div class="mcsub">成本: ${sign}${totCost.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+    <div class="mc"><div class="mclbl">估算總損益</div><div class="mcval ${totPnl>=0?'g':'r'}">${totPnl>=0?'+':''}${totPnl.toLocaleString(undefined,{maximumFractionDigits:0})}</div><div class="mcsub ${totPnl>=0?'cG':'cR'}">${totPnl>=0?'+':''}${totPnlP.toFixed(2)}%</div></div>
+  `;
+  let mMet=document.getElementById('m-met'), dMet=document.getElementById('d-met');
+  if(mMet) mMet.innerHTML=metHtml; if(dMet) dMet.innerHTML=metHtml;
+
+  let alHtml='';
+  const CAT_LABELS={tw:{n:'台股資產',c:'--tl'},us:{n:'美股資產',c:'--bl'},crypto:{n:'加密貨幣',c:'--pu'}};
+  ['tw','us','crypto'].forEach(cKey=>{
+    let cNav=catNav[cKey], cCost=catCost[cKey], cPnl=cNav-cCost;
+    let cPnlP=cCost>0? (cPnl/cCost)*100 : 0;
+    let meta=CAT_LABELS[cKey];
+    alHtml+=`
+      <div class="al-row-card">
+        <div class="al-line1">
+          <div class="al-cell-left"><span class="aldot" style="background:var(${meta.c})"></span><span class="alname">${meta.n}</span></div>
+          <span class="${cPnl>=0?'cG':'cR'}">${cPnl>=0?'+':''}${cPnl.toLocaleString(undefined,{maximumFractionDigits:0})} (${cPnl>=0?'+':''}${cPnlP.toFixed(2)}%)</span>
+        </div>
+        <div class="al-line2">
+          <div class="al-subitem">市值:<span>${sign}${cNav.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
+          <div class="al-subitem">投入成本:<span>${sign}${cCost.toLocaleString(undefined,{maximumFractionDigits:0})}</span></div>
+        </div>
+      </div>
+    `;
+  });
+  let mAl=document.getElementById('m-al'), dAl=document.getElementById('d-al');
+  if(mAl) mAl.innerHTML=alHtml; if(dAl) dAl.innerHTML=alHtml;
+
+  ['m-ch','d-ch'].forEach(id=>{
+    let canvas=document.getElementById(id); if(!canvas)return;
+    let type=id.startsWith('m')?'m':'d';
+    if(charts[type]) charts[type].destroy();
+    if(totNav===0){ charts[type]=null; return; }
+    charts[type]=new Chart(canvas,{
+      type:'doughnut',
+      data:{
+        labels:['台股','美股','加密貨幣'],
+        datasets:[{
+          data:[catNav.tw, catNav.us, catNav.crypto],
+          backgroundColor:['#29c4a2','#4b8ef0','#8f72f2'],
+          borderWidth:0
+        }]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{
+          legend:{display:false},
+          datalabels:{
+            color:'#fff', font:{weight:'bold',size:11},
+            formatter:(val,ctx)=>{
+              let sum=ctx.dataset.data.reduce((a,b)=>a+b,0);
+              return sum>0? ((val/sum)*100).toFixed(1)+'%':'';
+            }
+          }
+        }
+      },
+      plugins:[ChartDataLabels]
+    });
+  });
+}
+
+function renderCategoryTables(cat){
+  let accounts=Object.keys(AC_META).filter(k=>AC_META[k].type===cat);
+  accounts.forEach(acKey=>{
+    let list=(H.assets||[]).filter(a=>a.ac===acKey);
+    let mDiv=document.getElementById('mt-'+acKey), dDiv=document.getElementById('dt-'+acKey);
+    
+    let html='';
+    if(list.length===0){
+      html='<div class="emptytd">尚無資產明細，請點擊上方新增</div>';
+    }else{
+      html=`<table class="p-table">
+        <thead>
+          <tr>
+            <th>資產代號</th>
+            <th class="R">持股數量</th>
+            <th class="R">現價/成本</th>
+            <th class="R">當前市值</th>
+            <th class="R">損益/幅度</th>
+            <th style="width:50px;text-align:center">操作</th>
+          </tr>
+        </thead>
+        <tbody>`;
+      list.forEach(a=>{
+        let info=calcAssetValues(a);
+        html+=`
+          <tr>
+            <td><span class="tick">${a.sym}</span><span class="nsub">${a.name||'-'}</span></td>
+            <td class="R">${parseFloat(a.qty.toFixed(4))}</td>
+            <td class="R">${(a.prc||0).toLocaleString()}<span class="nsub">${(a.cost||0).toLocaleString()}</span></td>
+            <td class="R">${info.nav.toLocaleString(undefined,{maximumFractionDigits:0})}</td>
+            <td class="R ${info.pnl>=0?'g':'r'}">${info.pnl>=0?'+':''}${info.pnl.toLocaleString(undefined,{maximumFractionDigits:0})}<span class="nsub ${info.pnl>=0?'g':'r'}">${info.pnl>=0?'+':''}${info.pnlP.toFixed(2)}%</span></td>
+            <td style="text-align:center">
+              <div class="acts">
+                <button class="ibtn" onclick="deleteAsset('${a.id}')">&times;</button>
+              </div>
+            </td>
+          </tr>`;
+      });
+      html+=`</tbody></table>`;
+    }
+    if(mDiv) mDiv.innerHTML=html; if(dDiv) dDiv.innerHTML=html;
+  });
+}
+
+function renderSettings(){
+  let html=`
+    <div class="scard">
+      <h3>GitHub Gist 雲端同步設定</h3>
+      <div class="scard-sub">輸入個人安全存取權杖 (Token) 與 Gist ID，將精準連動並下載 <strong>portfolio.json</strong> 備份資料。</div>
+      <div class="frow"><div class="flbl">GitHub Token</div><input type="password" id="i-tok" class="finput" value="${C.TOKEN}" placeholder="ghp_..."></div>
+      <div class="frow"><div class="flbl">Gist ID</div><input type="text" id="i-gid" class="finput" value="${C.GID}" placeholder="32位元十六進位碼"></div>
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <button class="sbtn" onclick="saveSettings()">儲存並下載雲端同步</button>
+      </div>
+    </div>
+  `;
+  let mSet=document.getElementById('m-set'), dSet=document.getElementById('d-set');
+  if(mSet) mSet.innerHTML=html; if(dSet) dSet.innerHTML=html;
+}
+
+function saveSettings(){
+  C.TOKEN=document.getElementById('i-tok').value.trim();
+  C.GID=document.getElementById('i-gid').value.trim();
+  saveConfig();
+  showToast("同步設定已儲存");
+  gistPull(false);
+}
+
+function openModal(acKey){
+  let meta=AC_META[acKey]; if(!meta)return;
+  document.getElementById('modal-title').innerText=`新增資產 - ${meta.name}`;
+  let body=`
+    <input type="hidden" id="f-ac" value="${acKey}">
+    <div class="frow"><div class="flbl">資產代號 / 標的</div><input type="text" id="f-sym" class="finput" placeholder="例如: 2330, AAPL, BTC"></div>
+    <div class="frow"><div class="flbl">自訂名稱 (選填)</div><input type="text" id="f-name" class="finput" placeholder="例如: 台積電"></div>
+    <div class="frow"><div class="flbl">持有數量</div><input type="number" step="any" id="f-qty" class="finput" placeholder="0.00"></div>
+    <div class="frow"><div class="flbl">平均買入成本</div><input type="number" step="any" id="f-cost" class="finput" placeholder="0.00"></div>
+    <div class="modal-footer">
+      <button class="sbtn2" onclick="closeModal()">取消</button>
+      <button class="sbtn" onclick="submitAsset()">確認新增</button>
+    </div>
+  `;
+  document.getElementById('modal-body').innerHTML=body;
+  document.getElementById('modal-bg').classList.add('on');
+}
+
+function closeModal(e){
+  document.getElementById('modal-bg').classList.remove('on');
+}
+
+function submitAsset(){
+  let ac=document.getElementById('f-ac').value;
+  let sym=document.getElementById('f-sym').value.trim().toUpperCase();
+  let name=document.getElementById('f-name').value.trim();
+  let qty=parseFloat(document.getElementById('f-qty').value);
+  let cost=parseFloat(document.getElementById('f-cost').value);
+
+  if(!sym || isNaN(qty) || isNaN(cost) || qty<=0 || cost<0){
+    alert("請填寫正確欄位資訊"); return;
+  }
+
+  let newAsset={
+    id:'as_'+Date.now()+'_'+Math.floor(Math.random()*1000),
+    ac:ac, cat:AC_META[ac].type,
+    sym:sym, name:name||sym,
+    qty:qty, cost:cost, prc:cost
+  };
+
+  if(!H.assets) H.assets=[];
+  H.assets.push(newAsset);
+  H.lastUpdate=Date.now();
+  saveConfig();
+  closeModal();
+  showToast("成功加入資產");
+  fetchAll();
+}
+
+function deleteAsset(id){
+  if(!confirm("確定要刪除此筆資產記錄？")) return;
+  H.assets=(H.assets||[]).filter(a=>a.id!==id);
+  H.lastUpdate=Date.now();
+  saveConfig();
+  showToast("已刪除資產項目");
+  renderAll();
+  gistPushBack();
+}
+</script>
+</body>
+</html>
